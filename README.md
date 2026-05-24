@@ -22,9 +22,15 @@ Description-based suggestions are enriched with the free Datamuse word-finding A
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
+```
+
+On Windows (PowerShell), use:
+
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
 Open `http://localhost:5000`.

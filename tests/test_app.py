@@ -30,6 +30,14 @@ def test_generate_suggestions_honors_larger_limit(monkeypatch):
     assert len(suggestions) == len(set(suggestions))
 
 
+def test_generate_suggestions_handles_short_tokens_without_crashing(monkeypatch):
+    monkeypatch.setattr("app.fetch_related_terms", lambda *args, **kwargs: [])
+
+    suggestions = generate_suggestions("ai ux")
+
+    assert suggestions == []
+
+
 def test_parse_result_limit_allows_known_options_only():
     assert parse_result_limit("30") == 30
     assert parse_result_limit("999") == 10

@@ -174,6 +174,8 @@ def generate_suggestions(description: str, limit: int = DEFAULT_RESULT_LIMIT) ->
         if 3 <= len(candidate) <= 16 and candidate not in seen_words:
             seen_words.add(candidate)
             words.append(candidate)
+    if not words:
+        return []
 
     bases: list[str] = []
     bases.append("".join(words[:2]))
@@ -247,7 +249,7 @@ def check_username(username: str, platform: str, timeout: float = 6.0) -> ProbeR
         response = requests.get(
             url,
             headers=REQUEST_HEADERS,
-            allow_redirects=True,
+            allow_redirects=False,
             timeout=timeout,
         )
     except requests.RequestException as exc:
