@@ -51,6 +51,8 @@ pytest
 
 Free Render web services can spin down after inactivity, so the first request after a quiet period may be slower.
 
+Live app: https://social-media-handle-checker.onrender.com/
+
 ## API Acknowledgment
 
 Username suggestions use the Datamuse API: https://www.datamuse.com/api/
