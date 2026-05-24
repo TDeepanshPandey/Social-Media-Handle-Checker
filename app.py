@@ -87,6 +87,20 @@ def clean_username(username: str) -> str:
     return username.strip().lstrip("@")
 
 
+def parse_usernames(value: str) -> list[str]:
+    usernames: list[str] = []
+    seen: set[str] = set()
+
+    for part in value.split(","):
+        username = clean_username(part)
+        normalized = username.lower()
+        if username and normalized not in seen:
+            seen.add(normalized)
+            usernames.append(username)
+
+    return usernames
+
+
 def selected_platforms(raw_platforms: Iterable[str]) -> list[str]:
     return [platform for platform in raw_platforms if platform in AVAILABLE_PLATFORMS]
 
@@ -100,10 +114,10 @@ def parse_result_limit(value: str | None) -> int:
     return parsed if parsed in RESULT_LIMIT_OPTIONS else DEFAULT_RESULT_LIMIT
 
 
-def validate_form(description: str, platforms: list[str], username: str) -> list[str]:
+def validate_form(description: str, platforms: list[str], usernames: list[str]) -> list[str]:
     errors: list[str] = []
     has_description = bool(description.strip())
-    has_username = bool(username)
+    has_username = bool(usernames)
 
     if not has_description and not has_username:
         errors.append("Enter a username to check, a description for suggestions, or both.")
@@ -117,8 +131,9 @@ def validate_form(description: str, platforms: list[str], username: str) -> list
     if not platforms:
         errors.append("Select at least one platform to check.")
 
-    if username and not re.match(r"^[A-Za-z0-9._-]{1,30}$", username):
-        errors.append("The optional username can only include letters, numbers, periods, underscores, and hyphens.")
+    invalid_usernames = [username for username in usernames if not re.match(r"^[A-Za-z0-9._-]{1,30}$", username)]
+    if invalid_usernames:
+        errors.append("Each username can only include letters, numbers, periods, underscores, and hyphens.")
 
     return errors
 
@@ -312,18 +327,20 @@ def home():
 @app.post("/")
 def check_handles():
     description = request.form.get("description", "").strip()
-    username = clean_username(request.form.get("username", ""))
+    username_input = request.form.get("username", "")
+    direct_usernames = parse_usernames(username_input)
     result_limit = parse_result_limit(request.form.get("result_limit"))
     platforms = selected_platforms(request.form.getlist("platforms"))
-    errors = validate_form(description, platforms, username)
+    errors = validate_form(description, platforms, direct_usernames)
 
     suggestions = generate_suggestions(description, limit=result_limit) if description else []
     usernames = suggestions.copy()
 
-    if username and username.lower() not in {candidate.lower() for candidate in usernames}:
-        usernames.insert(0, username)
+    for username in reversed(direct_usernames):
+        if username.lower() not in {candidate.lower() for candidate in usernames}:
+            usernames.insert(0, username)
 
-    if description and not suggestions and not username:
+    if description and not suggestions and not direct_usernames:
         errors.append("Try adding a few more descriptive words so username suggestions can be generated.")
 
     results = {} if errors else run_checks(usernames, platforms)
@@ -335,7 +352,7 @@ def check_handles():
         result_limit=result_limit,
         selected=platforms,
         description=description,
-        username=username,
+        username=", ".join(direct_usernames),
         suggestions=suggestions,
         results=results,
         errors=errors,

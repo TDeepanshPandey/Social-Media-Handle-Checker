@@ -1,4 +1,12 @@
-from app import app, check_username, generate_suggestions, parse_result_limit, selected_platforms, validate_form
+from app import (
+    app,
+    check_username,
+    generate_suggestions,
+    parse_result_limit,
+    parse_usernames,
+    selected_platforms,
+    validate_form,
+)
 
 
 class DummyResponse:
@@ -44,21 +52,29 @@ def test_parse_result_limit_allows_known_options_only():
     assert parse_result_limit("not-a-number") == 10
 
 
+def test_parse_usernames_splits_commas_and_deduplicates():
+    assert parse_usernames("@clearhandle, second.handle, CLEARHANDLE, third_name") == [
+        "clearhandle",
+        "second.handle",
+        "third_name",
+    ]
+
+
 def test_validate_form_requires_input_and_platform():
-    errors = validate_form("", [], "")
+    errors = validate_form("", [], [])
 
     assert "Enter a username to check, a description for suggestions, or both." in errors
     assert "Select at least one platform to check." in errors
 
 
 def test_validate_form_allows_username_without_description():
-    errors = validate_form("", ["instagram"], "clearhandle")
+    errors = validate_form("", ["instagram"], ["clearhandle"])
 
     assert errors == []
 
 
 def test_validate_form_short_description_only_gets_description_error():
-    errors = validate_form("short", [], "")
+    errors = validate_form("short", [], [])
 
     assert "Please enter at least 10 characters for description-based suggestions." in errors
     assert "Select at least one platform to check." in errors
@@ -137,3 +153,21 @@ def test_username_only_submission_checks_name(monkeypatch):
     assert b"Please enter at least 10 characters" not in response.data
     assert b"@clearhandle" in response.data
     assert b"https://www.instagram.com/clearhandle/" in response.data
+
+
+def test_username_list_submission_checks_each_name(monkeypatch):
+    monkeypatch.setattr("app.requests.get", lambda *args, **kwargs: DummyResponse(404))
+
+    client = app.test_client()
+    response = client.post(
+        "/",
+        data={
+            "username": "@clearhandle, secondhandle, clearhandle",
+            "platforms": ["instagram"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert b"@clearhandle" in response.data
+    assert b"@secondhandle" in response.data
+    assert response.data.count(b"@clearhandle") == 1

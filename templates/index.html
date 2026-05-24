@@ -47,14 +47,14 @@
           </label>
 
           <label class="field">
-            <span>Username <small>optional for direct check</small></span>
+            <span>Usernames <small>optional, comma-separated for direct checks</small></span>
             <input
               type="text"
               name="username"
               value="{{ username }}"
-              maxlength="30"
-              pattern="[A-Za-z0-9._-]+"
-              placeholder="@yourname"
+              maxlength="500"
+              pattern="[A-Za-z0-9._,@\s-]+"
+              placeholder="@yourname, @anothername"
             >
           </label>
 

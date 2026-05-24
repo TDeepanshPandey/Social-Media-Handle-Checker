@@ -1,6 +1,6 @@
 # Social Media Handle Checker
 
-A Flask web app that checks a specific social username, generates social username ideas from a short description, or does both on Instagram, YouTube, and TikTok.
+A Flask web app that checks one or more social usernames, generates social username ideas from a short description, or does both on Instagram, YouTube, and TikTok.
 
 The app uses HTTP profile probes rather than private platform APIs. That keeps it deployable without API keys, but platforms may rate-limit or block automated requests. Those cases are shown as `unknown` so users can verify manually.
 
@@ -8,7 +8,7 @@ Description-based suggestions are enriched with the free Datamuse word-finding A
 
 ## Features
 
-- Username-only availability checks
+- Username-only availability checks, including comma-separated lists
 - Optional description-based username generation
 - User-selectable suggestion counts: 10, 15, 20, 25, 30, or 50
 - Datamuse-assisted related-word suggestions with local fallback
