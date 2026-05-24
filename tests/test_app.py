@@ -10,8 +10,9 @@ from app import (
 
 
 class DummyResponse:
-    def __init__(self, status_code):
+    def __init__(self, status_code, text=""):
         self.status_code = status_code
+        self.text = text
 
 
 def test_generate_suggestions_from_description(monkeypatch):
@@ -105,6 +106,43 @@ def test_profile_200_is_taken(monkeypatch):
     result = check_username("takenhandle", "tiktok")
 
     assert result.status == "taken"
+
+
+def test_profile_200_with_unavailable_page_is_available(monkeypatch):
+    monkeypatch.setattr("app.requests.get", lambda *args, **kwargs: DummyResponse(200, "Couldn't find this account"))
+
+    result = check_username("openhandle", "tiktok")
+
+    assert result.status == "available"
+
+
+def test_redirect_to_unavailable_page_is_available(monkeypatch):
+    responses = iter(
+        [
+            DummyResponse(302),
+            DummyResponse(200, "Sorry, this page isn't available. The link you followed may be broken."),
+        ]
+    )
+    monkeypatch.setattr("app.requests.get", lambda *args, **kwargs: next(responses))
+
+    result = check_username("openhandle", "instagram")
+
+    assert result.status == "available"
+
+
+def test_redirect_to_profile_page_is_taken(monkeypatch):
+    responses = iter(
+        [
+            DummyResponse(302),
+            DummyResponse(200, "<title>@takenhandle</title>"),
+        ]
+    )
+    monkeypatch.setattr("app.requests.get", lambda *args, **kwargs: next(responses))
+
+    result = check_username("takenhandle", "instagram")
+
+    assert result.status == "taken"
+    assert "after following the redirect" in result.message
 
 
 def test_blocked_probe_is_unknown(monkeypatch):

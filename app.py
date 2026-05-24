@@ -72,6 +72,26 @@ REQUEST_HEADERS = {
 DATAMUSE_WORDS_URL = "https://api.datamuse.com/words"
 RESULT_LIMIT_OPTIONS = (10, 15, 20, 25, 30, 50)
 DEFAULT_RESULT_LIMIT = 10
+REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
+BLOCKED_STATUS_CODES = {401, 403, 429}
+UNAVAILABLE_PAGE_MARKERS = {
+    "instagram": (
+        "sorry, this page isn't available",
+        "the link you followed may be broken",
+        "page isn't available",
+    ),
+    "youtube": (
+        "this channel doesn't exist",
+        "this page isn't available",
+        "404 not found",
+    ),
+    "tiktok": (
+        "couldn't find this account",
+        "couldn\u2019t find this account",
+        "account not found",
+        "user doesn't exist",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -253,6 +273,14 @@ def validate_for_platform(username: str, platform: str) -> str | None:
     return None
 
 
+def page_says_profile_unavailable(platform: str, response: requests.Response) -> bool:
+    text = getattr(response, "text", "") or ""
+    normalized_text = " ".join(text.lower().split())
+    markers = UNAVAILABLE_PAGE_MARKERS.get(platform, ())
+
+    return any(marker in normalized_text for marker in markers)
+
+
 def check_username(username: str, platform: str, timeout: float = 6.0) -> ProbeResult:
     invalid_message = validate_for_platform(username, platform)
     url = AVAILABLE_PLATFORMS[platform]["url"].format(username=username)
@@ -273,10 +301,13 @@ def check_username(username: str, platform: str, timeout: float = 6.0) -> ProbeR
     if response.status_code == 404:
         return ProbeResult(platform, username, "available", "No public profile was found.", url)
 
+    if page_says_profile_unavailable(platform, response):
+        return ProbeResult(platform, username, "available", "No public profile was found.", url)
+
     if response.status_code == 200:
         return ProbeResult(platform, username, "taken", "A public profile appears to exist.", url)
 
-    if response.status_code in {401, 403, 429}:
+    if response.status_code in BLOCKED_STATUS_CODES:
         return ProbeResult(
             platform,
             username,
@@ -285,8 +316,51 @@ def check_username(username: str, platform: str, timeout: float = 6.0) -> ProbeR
             url,
         )
 
-    if response.status_code in {301, 302, 303, 307, 308}:
-        return ProbeResult(platform, username, "taken", "The profile URL redirected.", url)
+    if response.status_code in REDIRECT_STATUS_CODES:
+        try:
+            followed_response = requests.get(
+                url,
+                headers=REQUEST_HEADERS,
+                allow_redirects=True,
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            return ProbeResult(
+                platform,
+                username,
+                "unknown",
+                f"Profile URL redirected, but the follow-up check failed: {exc.__class__.__name__}.",
+                url,
+            )
+
+        if followed_response.status_code == 404 or page_says_profile_unavailable(platform, followed_response):
+            return ProbeResult(
+                platform,
+                username,
+                "available",
+                "No public profile was found after following the redirect.",
+                url,
+            )
+
+        if followed_response.status_code == 200:
+            return ProbeResult(
+                platform,
+                username,
+                "taken",
+                "A public profile appears to exist after following the redirect.",
+                url,
+            )
+
+        if followed_response.status_code in BLOCKED_STATUS_CODES:
+            return ProbeResult(
+                platform,
+                username,
+                "unknown",
+                f"Platform returned HTTP {followed_response.status_code}; it may be blocking automated checks.",
+                url,
+            )
+
+        return ProbeResult(platform, username, "unknown", f"Redirect ended with HTTP {followed_response.status_code}.", url)
 
     return ProbeResult(platform, username, "unknown", f"Platform returned HTTP {response.status_code}.", url)
 
