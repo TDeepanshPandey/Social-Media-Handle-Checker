@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Social Media Handle Checker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="intro">
+          <p class="eyebrow">Handle availability</p>
+          <h1 id="page-title">Find social usernames that fit your idea.</h1>
+          <p class="lede">
+            Check a specific username, generate ideas from a description, or do both in one pass.
+          </p>
+        </div>
+
+        <form class="checker" method="post" novalidate>
+          {% if errors %}
+            <div class="alert" role="alert">
+              {% for error in errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <label class="field">
+            <span>Description <small>optional for suggestions</small></span>
+            <textarea
+              name="description"
+              maxlength="500"
+              placeholder="Example: A channel for quick vegan recipes, budget meal prep, and kitchen shortcuts"
+            >{{ description }}</textarea>
+          </label>
+
+          <label class="field compact-field">
+            <span>Suggestion results</span>
+            <select name="result_limit">
+              {% for option in result_limit_options %}
+                <option value="{{ option }}" {% if option == result_limit %}selected{% endif %}>
+                  {{ option }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Username <small>optional for direct check</small></span>
+            <input
+              type="text"
+              name="username"
+              value="{{ username }}"
+              maxlength="30"
+              pattern="[A-Za-z0-9._-]+"
+              placeholder="@yourname"
+            >
+          </label>
+
+          <fieldset class="platforms">
+            <legend>Platforms</legend>
+            <div class="platform-grid">
+              {% for key, platform in platforms.items() %}
+                <label class="platform-option">
+                  <input
+                    type="checkbox"
+                    name="platforms"
+                    value="{{ key }}"
+                    {% if key in selected %}checked{% endif %}
+                  >
+                  <span>{{ platform.name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <button class="submit" type="submit">Check handles</button>
+        </form>
+      </section>
+
+      {% if results %}
+        <section class="results" aria-labelledby="results-title">
+          <div class="results-head">
+            <div>
+              <p class="eyebrow">Results</p>
+              <h2 id="results-title">Availability snapshot</h2>
+            </div>
+            <p class="note">Public profile checks can be rate-limited. Treat unknown results as "verify manually."</p>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  {% for key in selected %}
+                    <th scope="col">{{ platforms[key].name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for handle, platform_results in results.items() %}
+                  <tr>
+                    <th scope="row">@{{ handle }}</th>
+                    {% for key in selected %}
+                      {% set result = platform_results[key] %}
+                      <td>
+                        <div class="status {{ result.status }}">
+                          <strong>{{ result.status }}</strong>
+                          <span>{{ result.message }}</span>
+                        </div>
+                        <a class="verify-url" href="{{ result.url }}" target="_blank" rel="noreferrer">
+                          {{ result.url }}
+                        </a>
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
